@@ -9,7 +9,7 @@ int at_register_send(struct at_parser *p, int (*sendData)(char *, int, void *use
 int at_register_recv(struct at_parser *p, int (*recvData)(char *, int, void *userdata), void *userdata);
 
 // Callback used for signaling events
-int at_register_command_parser(struct at_parser *p, int (*commandParser)(char *, int, void *userdata), void *userdata);
+int at_register_response_parser(struct at_parser *p, int (*responseParser)(char *, int, void *userdata), void *userdata);
 
 // XXX: to remove?
 int at_send_data(struct at_parser *p, char *buf, int len);

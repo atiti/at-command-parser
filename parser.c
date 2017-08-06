@@ -6,12 +6,6 @@
 
 #define RX_BUFFER_SIZE 64
 
-#define RESP_OK                             FROMMEM("OK\r\n")
-#define RESP_ERROR                          FROMMEM("ERROR\r\n")
-#define RESP_BUSY                           FROMMEM("busy p...\r\n")
-#define RESP_READY                          FROMMEM("ready\r\n")
-#define _CRLF                               FROMMEM("\r\n")
-
 struct at_parser {
   int rx_offset;
   char rxbuffer[RX_BUFFER_SIZE];
@@ -20,8 +14,8 @@ struct at_parser {
   int (*recvData)(char *, int, void *);
   void *userdata_recv;
 
-  int (*commandParser)(char *, int, void *);
-  void *userdata_cmdparser;
+  int (*responseParser)(char *, int, void *);
+  void *userdata_respparser;
 };
 
 struct at_parser _parser = {0};
@@ -43,9 +37,9 @@ int at_register_recv(struct at_parser *p, int (*recvData)(char *, int, void *), 
   return 1;
 }
 
-int at_register_command_parser(struct at_parser *p, int (*commandParser)(char *, int, void *), void *userdata) {
-  p->commandParser = commandParser;
-  p->userdata_cmdparser = userdata;
+int at_register_response_parser(struct at_parser *p, int (*responseParser)(char *, int, void *), void *userdata) {
+  p->responseParser = responseParser;
+  p->userdata_respparser = userdata;
   return 1;
 }
 
@@ -112,7 +106,6 @@ int at_parse_incoming(struct at_parser *p, int bytes, int *next) {
   }
 
   ret = at_parse_line(p, offset);
-  char *line = p->rxbuffer + offset;
   if (ret != -1) {
     *next = ret + 1;
   } else {
@@ -140,16 +133,22 @@ int at_wait_for_response(struct at_parser *p) {
             line[0] == '\0') {
           continue;
         }
-        printf("Line: %s offset %d\n", line, offset);
+        printf("Line: %s\n", line);
 
-        if (strncmp(line, "OK", 2) == 0) {
-          response = 1;
-        } else if (strncmp(line, "no this fun", 11) == 0) {
-          response = 1;
+        if (!p->responseParser) {
+          if (strncmp(line, "OK", 2) == 0) {
+            response = 1;
+          } else if (strncmp(line, "no this fun", 11) == 0) {
+            response = 1;
+          } else if (strncmp(line, "ERROR", 5) == 0) {
+            response = 1;
+          }
+        } else {
+          response = p->responseParser(line, strlen(line), p->userdata_respparser);
         }
       }
     } while (offset != -1);
   }
 
-  return 1;
+  return response;
 }
